@@ -4,6 +4,7 @@ require (
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
+	github.com/joho/godotenv v1.3.0
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/nmrshll/oauth2-noserver v0.0.0-20190221200101-9bf017bef639
 	github.com/nmrshll/rndm-go v0.0.0-20170430161430-8da3024e53de // indirect

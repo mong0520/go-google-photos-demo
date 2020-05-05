@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
 	"os/user"
 
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 
 	oauth2ns "github.com/nmrshll/oauth2-noserver"
@@ -22,14 +25,15 @@ const (
 var albumService *photoslibrary.AlbumsService
 
 func Init() {
+	godotenv.Load()
 	user, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
 	// ask the user to authenticate on google in the browser
 	conf := &oauth2.Config{
-		ClientID:     "your_client_id",
-		ClientSecret: "your_secret",
+		ClientID:     os.Getenv("ClientID"),
+		ClientSecret: os.Getenv("ClientSecret"),
 		Scopes:       []string{photoslibrary.PhotoslibraryScope},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  google.Endpoint.AuthURL,
@@ -82,14 +86,32 @@ func createAlbum(title string) {
 
 func listAlbums() error {
 	albumList := albumService.List()
-	ret, err := albumList.Do()
+	ret, err := albumList.PageSize(50).Do()
+	albumList.Do()
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
 	for _, album := range ret.Albums {
-		log.Println(album.Title)
+		fmt.Println(album.Title, album.ProductUrl)
 	}
+	for {
+		nextPageToken := ret.NextPageToken
+		if nextPageToken == "" {
+			break
+		}
+		ret, err = albumList.PageToken(nextPageToken).PageSize(50).Do()
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		for _, album := range ret.Albums {
+			fmt.Println(album.Title, album.ProductUrl)
+		}
+	}
+	// for _, album := range ret.Albums {
+	// 	log.Println(album.Title, album.ProductUrl)
+	// }
 
 	return nil
 }
