@@ -1,20 +1,13 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"os/user"
 
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	log "github.com/sirupsen/logrus"
-
-	oauth2ns "github.com/nmrshll/oauth2-noserver"
-	keyring "github.com/zalando/go-keyring"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	"github.com/mong0520/go-google-photos-demo/handlers"
 	photoslibrary "google.golang.org/api/photoslibrary/v1"
 )
 
@@ -24,139 +17,82 @@ const (
 
 var albumService *photoslibrary.AlbumsService
 
-func Init() {
+func run() {
+	router := gin.New()
 	godotenv.Load()
-	user, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-	// ask the user to authenticate on google in the browser
-	conf := &oauth2.Config{
-		ClientID:     os.Getenv("ClientID"),
-		ClientSecret: os.Getenv("ClientSecret"),
-		Scopes:       []string{photoslibrary.PhotoslibraryScope},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  google.Endpoint.AuthURL,
-			TokenURL: google.Endpoint.TokenURL,
-		},
-	}
-	client := &oauth2ns.AuthorizedClient{}
-	// Try to use existing token
-	existToken, err := retrieveToken(user.Name)
-	forceToken := false
-	service := &photoslibrary.Service{}
+	router.Use(cors.Default())
 
-	if err != nil || forceToken == true {
-		// Token not found
-		log.Debug(err)
+	// router.Static("/web", "./web")
+	// router.GET("/login", handlers.LoginHandler)
+	// router.GET("/login2", handlers.LoginHandler2)
+	// router.GET("/oauth2callback", handlers.CallbackHander2)
+	router.GET("/albums", handlers.AlbumsHandler)
+	router.GET("/healthcheck", handlers.HealthCheckHandler)
 
-		// Request a new access token
-		client, err = oauth2ns.AuthenticateUser(conf)
-		if err != nil {
-			log.Debug(err)
-		}
-
-		// Store it
-		storeToken(user.Name, client.Token)
-	} else {
-		// Use existing one
-		client = &oauth2ns.AuthorizedClient{
-			Client: conf.Client(context.Background(), existToken),
-			Token:  existToken,
-		}
-	}
-	service, err = photoslibrary.New(client.Client)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	albumService = photoslibrary.NewAlbumsService(service)
-}
-
-func createAlbum(title string) {
-	args := photoslibrary.CreateAlbumRequest{
-		Album: &photoslibrary.Album{
-			Title: title,
-		},
-	}
-	ret := albumService.Create(&args)
-	albums, _ := ret.Do()
-	log.Println(albums.ProductUrl)
-}
-
-func listAlbums() error {
-	albumList := albumService.List()
-	ret, err := albumList.PageSize(50).Do()
-	albumList.Do()
-	if err != nil {
-		log.Fatal(err)
-		return err
-	}
-	for _, album := range ret.Albums {
-		fmt.Println(album.Title, album.ProductUrl)
-	}
-	for {
-		nextPageToken := ret.NextPageToken
-		if nextPageToken == "" {
-			break
-		}
-		ret, err = albumList.PageToken(nextPageToken).PageSize(50).Do()
-		if err != nil {
-			log.Fatal(err)
-			return err
-		}
-		for _, album := range ret.Albums {
-			fmt.Println(album.Title, album.ProductUrl)
-		}
-	}
-	// for _, album := range ret.Albums {
-	// 	log.Println(album.Title, album.ProductUrl)
-	// }
-
-	return nil
-}
-
-func storeToken(googleUserEmail string, token *oauth2.Token) error {
-	tokenJSONBytes, err := json.Marshal(token)
-	if err != nil {
-		return err
-	}
-
-	err = keyring.Set(serviceName, googleUserEmail, string(tokenJSONBytes))
-	if err != nil {
-		log.Debugf("failed storing token into keyring: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func retrieveToken(googleUserEmail string) (*oauth2.Token, error) {
-	tokenJSONString, err := keyring.Get(serviceName, googleUserEmail)
-	if err != nil {
-		if err == keyring.ErrNotFound {
-			return nil, err
-		}
-
-		return nil, err
-	}
-
-	var token oauth2.Token
-	err = json.Unmarshal([]byte(tokenJSONString), &token)
-	if err != nil {
-		log.Debugf("failed unmarshaling token: %v", err)
-		return nil, err
-	}
-
-	// validate token
-	if !token.Valid() {
-		return nil, errors.New("invalid token")
-	}
-
-	return &token, nil
+	port := os.Getenv("PORT")
+	addr := fmt.Sprintf(":%s", port)
+	router.Run(addr)
 }
 
 func main() {
-	Init()
-	listAlbums()
+	run()
 }
+
+// package main
+
+// import (
+// 	"flag"
+// 	"fmt"
+// 	"net/http"
+// 	"os"
+// 	"path"
+
+// 	"github.com/gin-gonic/gin"
+// 	"github.com/zalando/gin-oauth2/google"
+// )
+
+// var redirectURL, credFile string
+
+// func init() {
+// 	bin := path.Base(os.Args[0])
+// 	flag.Usage = func() {
+// 		fmt.Fprintf(os.Stderr, `
+// Usage of %s
+// ================
+// `, bin)
+// 		flag.PrintDefaults()
+// 	}
+// 	flag.StringVar(&redirectURL, "redirect", "http://127.0.0.1:8081/auth/api", "URL to be redirected to after authorization.")
+// 	flag.StringVar(&credFile, "cred-file", "./cred.json", "Credential JSON file")
+// }
+// func main() {
+// 	flag.Parse()
+
+// 	scopes := []string{
+// 		"https://www.googleapis.com/auth/userinfo.email",
+// 		// You have to select your own scope from here -> https://developers.google.com/identity/protocols/googlescopes#google_sign-in
+// 	}
+// 	secret := []byte("secret")
+// 	sessionName := "goquestsession"
+
+// 	router := gin.Default()
+// 	// init settings for google auth
+// 	google.Setup(redirectURL, credFile, scopes, secret)
+// 	router.Use(google.Session(sessionName))
+
+// 	router.GET("/login", google.LoginHandler)
+
+// 	// protected url group
+// 	private := router.Group("/auth")
+// 	private.Use(google.Auth())
+// 	private.GET("/", UserInfoHandler)
+// 	private.GET("/api", func(ctx *gin.Context) {
+// 		ctx.JSON(200, gin.H{"message": "Hello from private for groups"})
+// 	})
+
+// 	router.Run("127.0.0.1:8081")
+// }
+
+// func UserInfoHandler(ctx *gin.Context) {
+// 	ctx.JSON(http.StatusOK, gin.H{"Hello": "from private", "user": ctx.MustGet("user").(google.User)})
+// }
