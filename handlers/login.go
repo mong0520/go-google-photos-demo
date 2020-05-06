@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mong0520/go-google-photos-demo/cache"
 	"golang.org/x/oauth2"
 )
 
@@ -20,12 +20,16 @@ var (
 )
 
 func SuccessHandler(ctx *gin.Context) {
+	cache := cache.GetCacheInstance()
+	fmt.Println("setting token cache")
 	token := ctx.Value("token").(*oauth2.Token)
-	tokenByte, _ := json.Marshal(token)
-	fmt.Println("setting cookies")
-	ctx.SetCookie("myphoto_cookie", string(tokenByte), 36000, "/", "api.nt1.me", false, true)
-	// ctx.JSON(http.StatusOK, "loging success")
-	ctx.Redirect(http.StatusMovedPermanently, "http://api.nt1.me:5000/albums")
+	session, _ := ctx.Cookie("goquestsession")
+	fmt.Printf("session = %s\n", session)
+	cacheInst := *cache
+	cacheInst[session] = token
+	fmt.Println("cache = ", cacheInst[session])
+	ctx.JSON(http.StatusOK, "loging success")
+	// ctx.Redirect(http.StatusMovedPermanently, "http://api.nt1.me:5000/albums")
 }
 
 // func LoginHandler2(c *gin.Context) {

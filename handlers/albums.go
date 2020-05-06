@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/mong0520/go-google-photos-demo/cache"
 	"github.com/mong0520/go-google-photos-demo/models"
 	log "github.com/sirupsen/logrus"
 	keyring "github.com/zalando/go-keyring"
@@ -24,9 +25,19 @@ const (
 )
 
 func AlbumsHandler(c *gin.Context) {
-	tokenStr, err := c.Cookie("myphoto_cookie")
-	if err != nil {
-		c.JSON(200, err)
+	session := c.Query("sessionID")
+	fmt.Printf("session ID= %s\n", session)
+	if session == "" {
+		c.JSON(200, "please login first")
+		return
+	}
+	cacheInst := *cache.GetCacheInstance()
+	token := &oauth2.Token{}
+	if val, ok := cacheInst[session]; ok {
+		token = val
+	} else {
+		c.JSON(200, "session id / token mapping not found")
+		return
 	}
 	godotenv.Load()
 	// ask the user to authenticate on google in the browser
@@ -39,12 +50,6 @@ func AlbumsHandler(c *gin.Context) {
 			TokenURL: google.Endpoint.TokenURL,
 		},
 	}
-	token := &oauth2.Token{}
-	err = json.Unmarshal([]byte(tokenStr), token)
-	if err != nil {
-		c.JSON(200, err)
-	}
-	fmt.Printf("%+v", token)
 	httpClient := conf.Client(context.Background(), token)
 	service := &photoslibrary.Service{}
 	// Try to use existing token
@@ -71,9 +76,9 @@ func AlbumsHandler(c *gin.Context) {
 	// 		Token:  existToken,
 	// 	}
 	// }
-	service, err = photoslibrary.New(httpClient)
+	service, err := photoslibrary.New(httpClient)
 	if err != nil {
-		log.Fatal(err)
+		c.JSON(200, err)
 	}
 
 	albumService = photoslibrary.NewAlbumsService(service)
@@ -97,7 +102,6 @@ func listAlbums() (albums []*models.SimpleAlbum, err error) {
 	ret, err := albumList.PageSize(50).Do()
 	albumList.Do()
 	if err != nil {
-		log.Fatal(err)
 		return albums, err
 	}
 	for _, album := range ret.Albums {

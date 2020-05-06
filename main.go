@@ -1,43 +1,3 @@
-// package main
-
-// import (
-// 	"fmt"
-// 	"os"
-
-// 	"github.com/gin-contrib/cors"
-// 	"github.com/gin-gonic/gin"
-// 	"github.com/joho/godotenv"
-// 	"github.com/mong0520/go-google-photos-demo/handlers"
-// 	photoslibrary "google.golang.org/api/photoslibrary/v1"
-// )
-
-// const (
-// 	serviceName = "googlephotos-uploader-go-api"
-// )
-
-// var albumService *photoslibrary.AlbumsService
-
-// func run() {
-// 	router := gin.New()
-// 	godotenv.Load()
-// 	router.Use(cors.Default())
-
-// 	// router.Static("/web", "./web")
-// 	// router.GET("/login", handlers.LoginHandler)
-// 	// router.GET("/login2", handlers.LoginHandler2)
-// 	router.GET("/oauth2callback", handlers.CallbackHander2)
-// 	router.GET("/albums", handlers.AlbumsHandler)
-// 	router.GET("/healthcheck", handlers.HealthCheckHandler)
-
-// 	port := os.Getenv("PORT")
-// 	addr := fmt.Sprintf(":%s", port)
-// 	router.Run(addr)
-// }
-
-// func main() {
-// 	run()
-// }
-
 package main
 
 import (
@@ -45,14 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/mong0520/go-google-photos-demo/handlers"
 	"github.com/zalando/gin-oauth2/google"
+	"golang.org/x/oauth2"
 	"google.golang.org/api/photoslibrary/v1"
 )
 
 var redirectURL, credFile string
+var tokenCache map[string]*oauth2.Token
 
 type User struct {
 	Sub           string `json:"sub"`
@@ -76,7 +40,7 @@ Usage of %s
 `, bin)
 		flag.PrintDefaults()
 	}
-	flag.StringVar(&redirectURL, "redirect", "http://localhost:5000/auth", "URL to be redirected to after authorization.")
+	flag.StringVar(&redirectURL, "redirect", "http://localhost:5000/auth/success", "URL to be redirected to after authorization.")
 	flag.StringVar(&credFile, "cred-file", "./cred.json", "Credential JSON file")
 }
 func main() {
@@ -90,7 +54,14 @@ func main() {
 	secret := []byte("secret")
 	sessionName := "goquestsession"
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(cors.New(cors.Config{
+		AllowOriginFunc:  func(origin string) bool { return true },
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	// init settings for google auth
 	google.Setup(redirectURL, credFile, scopes, secret)
 	router.Use(google.Session(sessionName))
