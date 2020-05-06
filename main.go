@@ -1,98 +1,155 @@
-package main
-
-import (
-	"fmt"
-	"os"
-
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"github.com/mong0520/go-google-photos-demo/handlers"
-	photoslibrary "google.golang.org/api/photoslibrary/v1"
-)
-
-const (
-	serviceName = "googlephotos-uploader-go-api"
-)
-
-var albumService *photoslibrary.AlbumsService
-
-func run() {
-	router := gin.New()
-	godotenv.Load()
-	router.Use(cors.Default())
-
-	// router.Static("/web", "./web")
-	// router.GET("/login", handlers.LoginHandler)
-	// router.GET("/login2", handlers.LoginHandler2)
-	// router.GET("/oauth2callback", handlers.CallbackHander2)
-	router.GET("/albums", handlers.AlbumsHandler)
-	router.GET("/healthcheck", handlers.HealthCheckHandler)
-
-	port := os.Getenv("PORT")
-	addr := fmt.Sprintf(":%s", port)
-	router.Run(addr)
-}
-
-func main() {
-	run()
-}
-
 // package main
 
 // import (
-// 	"flag"
 // 	"fmt"
-// 	"net/http"
 // 	"os"
-// 	"path"
 
+// 	"github.com/gin-contrib/cors"
 // 	"github.com/gin-gonic/gin"
-// 	"github.com/zalando/gin-oauth2/google"
+// 	"github.com/joho/godotenv"
+// 	"github.com/mong0520/go-google-photos-demo/handlers"
+// 	photoslibrary "google.golang.org/api/photoslibrary/v1"
 // )
 
-// var redirectURL, credFile string
+// const (
+// 	serviceName = "googlephotos-uploader-go-api"
+// )
 
-// func init() {
-// 	bin := path.Base(os.Args[0])
-// 	flag.Usage = func() {
-// 		fmt.Fprintf(os.Stderr, `
-// Usage of %s
-// ================
-// `, bin)
-// 		flag.PrintDefaults()
-// 	}
-// 	flag.StringVar(&redirectURL, "redirect", "http://127.0.0.1:8081/auth/api", "URL to be redirected to after authorization.")
-// 	flag.StringVar(&credFile, "cred-file", "./cred.json", "Credential JSON file")
+// var albumService *photoslibrary.AlbumsService
+
+// func run() {
+// 	router := gin.New()
+// 	godotenv.Load()
+// 	router.Use(cors.Default())
+
+// 	// router.Static("/web", "./web")
+// 	// router.GET("/login", handlers.LoginHandler)
+// 	// router.GET("/login2", handlers.LoginHandler2)
+// 	router.GET("/oauth2callback", handlers.CallbackHander2)
+// 	router.GET("/albums", handlers.AlbumsHandler)
+// 	router.GET("/healthcheck", handlers.HealthCheckHandler)
+
+// 	port := os.Getenv("PORT")
+// 	addr := fmt.Sprintf(":%s", port)
+// 	router.Run(addr)
 // }
+
 // func main() {
-// 	flag.Parse()
-
-// 	scopes := []string{
-// 		"https://www.googleapis.com/auth/userinfo.email",
-// 		// You have to select your own scope from here -> https://developers.google.com/identity/protocols/googlescopes#google_sign-in
-// 	}
-// 	secret := []byte("secret")
-// 	sessionName := "goquestsession"
-
-// 	router := gin.Default()
-// 	// init settings for google auth
-// 	google.Setup(redirectURL, credFile, scopes, secret)
-// 	router.Use(google.Session(sessionName))
-
-// 	router.GET("/login", google.LoginHandler)
-
-// 	// protected url group
-// 	private := router.Group("/auth")
-// 	private.Use(google.Auth())
-// 	private.GET("/", UserInfoHandler)
-// 	private.GET("/api", func(ctx *gin.Context) {
-// 		ctx.JSON(200, gin.H{"message": "Hello from private for groups"})
-// 	})
-
-// 	router.Run("127.0.0.1:8081")
+// 	run()
 // }
 
-// func UserInfoHandler(ctx *gin.Context) {
-// 	ctx.JSON(http.StatusOK, gin.H{"Hello": "from private", "user": ctx.MustGet("user").(google.User)})
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"path"
+
+	"github.com/gin-gonic/gin"
+	"github.com/mong0520/go-google-photos-demo/handlers"
+	"github.com/zalando/gin-oauth2/google"
+	"google.golang.org/api/photoslibrary/v1"
+)
+
+var redirectURL, credFile string
+
+type User struct {
+	Sub           string `json:"sub"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	Profile       string `json:"profile"`
+	Picture       string `json:"picture"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	Gender        string `json:"gender"`
+	Hd            string `json:"hd"`
+}
+
+func init() {
+	bin := path.Base(os.Args[0])
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, `
+Usage of %s
+================
+`, bin)
+		flag.PrintDefaults()
+	}
+	flag.StringVar(&redirectURL, "redirect", "http://localhost:5000/auth", "URL to be redirected to after authorization.")
+	flag.StringVar(&credFile, "cred-file", "./cred.json", "Credential JSON file")
+}
+func main() {
+	flag.Parse()
+
+	scopes := []string{
+		"https://www.googleapis.com/auth/userinfo.email",
+		photoslibrary.PhotoslibraryScope,
+		// You have to select your own scope from here -> https://developers.google.com/identity/protocols/googlescopes#google_sign-in
+	}
+	secret := []byte("secret")
+	sessionName := "goquestsession"
+
+	router := gin.Default()
+	// init settings for google auth
+	google.Setup(redirectURL, credFile, scopes, secret)
+	router.Use(google.Session(sessionName))
+
+	router.GET("/login", google.LoginHandler)
+	router.GET("/albums", handlers.AlbumsHandler)
+
+	// protected url group
+	private := router.Group("/auth")
+	private.Use(google.Auth())
+	private.GET("/success", handlers.SuccessHandler)
+	// private.GET("/api", func(ctx *gin.Context) {
+	// 	token, err := ctx.Cookie("myphoto_cookie")
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 	} else {
+	// 		fmt.Println(token)
+	// 	}
+	// 	// ctx.JSON(200, gin.H{"message": "Hello from private for groups"})
+	// })
+
+	router.Run(":5000")
+}
+
+// func ShowUserInfo(ctx *gin.Context) {
+// 	tokenStr, err := ctx.Cookie("myphoto_cookie")
+// 	if err != nil {
+// 		ctx.JSON(200, err)
+// 	}
+// 	token := &oauth2.Token{}
+// 	err = json.Unmarshal([]byte(tokenStr), token)
+// 	if err != nil {
+// 		ctx.JSON(200, err)
+// 	}
+// 	conf := &oauth2.Config{
+// 		ClientID:     os.Getenv("ClientID"),
+// 		ClientSecret: os.Getenv("ClientSecret"),
+// 		Scopes:       []string{photoslibrary.PhotoslibraryScope, "https://www.googleapis.com/auth/userinfo.email"},
+// 	}
+// 	client := conf.Client(oauth2.NoContext, token)
+// 	email, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+// 	if err != nil {
+// 		ctx.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	defer email.Body.Close()
+// 	data, err := ioutil.ReadAll(email.Body)
+// 	if err != nil {
+// 		glog.Errorf("[Gin-OAuth] Could not read Body: %s", err)
+// 		ctx.AbortWithError(http.StatusInternalServerError, err)
+// 		return
+// 	}
+
+// 	var user User
+// 	err = json.Unmarshal(data, &user)
+// 	if err != nil {
+// 		glog.Errorf("[Gin-OAuth] Unmarshal userinfo failed: %s", err)
+// 		ctx.AbortWithError(http.StatusInternalServerError, err)
+// 		return
+// 	}
+// 	ctx.JSON(200, user)
 // }
