@@ -68,6 +68,7 @@ func main() {
 
 	router.GET("/login", google.LoginHandler)
 	router.GET("/albums", handlers.AlbumsHandler)
+	router.Static("/web", "./web")
 
 	// protected url group
 	private := router.Group("/auth")
