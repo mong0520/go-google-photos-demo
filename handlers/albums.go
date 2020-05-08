@@ -8,8 +8,6 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"github.com/mong0520/go-google-photos-demo/cache"
 	"github.com/mong0520/go-google-photos-demo/models"
 	log "github.com/sirupsen/logrus"
 	keyring "github.com/zalando/go-keyring"
@@ -25,21 +23,8 @@ const (
 )
 
 func AlbumsHandler(c *gin.Context) {
-	session := c.Query("sessionID")
-	fmt.Printf("session ID= %s\n", session)
-	if session == "" {
-		c.JSON(200, "please login first")
-		return
-	}
-	cacheInst := *cache.GetCacheInstance()
-	token := &oauth2.Token{}
-	if val, ok := cacheInst[session]; ok {
-		token = val
-	} else {
-		c.JSON(200, "session id / token mapping not found")
-		return
-	}
-	godotenv.Load()
+
+	token := c.MustGet("token").(*oauth2.Token)
 	// ask the user to authenticate on google in the browser
 	conf := &oauth2.Config{
 		ClientID:     os.Getenv("ClientID"),
@@ -52,30 +37,7 @@ func AlbumsHandler(c *gin.Context) {
 	}
 	httpClient := conf.Client(context.Background(), token)
 	service := &photoslibrary.Service{}
-	// Try to use existing token
-	// existToken, err := retrieveToken(user.Name)
-	// forceToken := false
-	// service := &photoslibrary.Service{}
 
-	// if err != nil || forceToken == true {
-	// 	// Token not found
-	// 	log.Debug(err)
-
-	// 	// Request a new access token
-	// 	client, err = oauth2ns.AuthenticateUser(conf)
-	// 	if err != nil {
-	// 		log.Debug(err)
-	// 	}
-
-	// 	// Store it
-	// 	storeToken(user.Name, client.Token)
-	// } else {
-	// 	// Use existing one
-	// 	client = &oauth2ns.AuthorizedClient{
-	// 		Client: conf.Client(context.Background(), existToken),
-	// 		Token:  existToken,
-	// 	}
-	// }
 	service, err := photoslibrary.New(httpClient)
 	if err != nil {
 		c.JSON(200, err)
@@ -107,9 +69,9 @@ func listAlbums() (albums []*models.SimpleAlbum, err error) {
 	for _, album := range ret.Albums {
 		fmt.Println(album.Title, album.ProductUrl)
 		simpleAlbum := &models.SimpleAlbum{
-			Title: album.Title,
-			// CoverPhotoBaseUrl: album.CoverPhotoBaseUrl,
-			Url: album.ProductUrl,
+			Title:             album.Title,
+			CoverPhotoBaseUrl: album.CoverPhotoBaseUrl,
+			Url:               album.ProductUrl,
 		}
 		albums = append(albums, simpleAlbum)
 	}
