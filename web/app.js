@@ -28,7 +28,7 @@ new Vue({
         queryAlbums(){
             console.log("enter queryAlbums()")
             console.log("Start to list albums")
-            axios.get(host + "/albums?sessionID="+getCookie("goquestsession"))
+            axios.get(host + "/auth/albums?sessionID="+getCookie("goquestsession"))
                 .then(response => { 
                     console.log(response)
                     this.resultAlbums = response.data;

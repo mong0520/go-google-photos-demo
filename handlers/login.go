@@ -56,6 +56,7 @@ func AuthMiddleware(ctx *gin.Context) {
 	}
 
 	ctx.Set("token", token)
+	ctx.Set("conf", conf)
 }
 
 func GoogleAuthMiddleware() gin.HandlerFunc {

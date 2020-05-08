@@ -52,8 +52,11 @@ func main() {
 	router.Use(handlers.Session(sessionName))
 
 	router.GET("/login", handlers.LoginHandler)
-	router.GET("/albums", handlers.AuthMiddleware, handlers.AlbumsHandler)
 	router.Static("/web", "./web")
+
+	albumsRouter := router.Group("/auth")
+	albumsRouter.Use(handlers.AuthMiddleware)
+	albumsRouter.GET("/albums", handlers.GetAlbums)
 
 	// protected url group
 	private := router.Group("/callback")

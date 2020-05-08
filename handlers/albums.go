@@ -2,39 +2,22 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mong0520/go-google-photos-demo/models"
 	log "github.com/sirupsen/logrus"
-	keyring "github.com/zalando/go-keyring"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	photoslibrary "google.golang.org/api/photoslibrary/v1"
 )
 
 var albumService *photoslibrary.AlbumsService
+var defaultPageSize = int64(50)
 
-const (
-	serviceName = "googlephotos-uploader-go-api"
-)
-
-func AlbumsHandler(c *gin.Context) {
-
+func GetAlbums(c *gin.Context) {
+	// those context value was set in middleware
 	token := c.MustGet("token").(*oauth2.Token)
-	// ask the user to authenticate on google in the browser
-	conf := &oauth2.Config{
-		ClientID:     os.Getenv("ClientID"),
-		ClientSecret: os.Getenv("ClientSecret"),
-		Scopes:       []string{photoslibrary.PhotoslibraryScope},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  google.Endpoint.AuthURL,
-			TokenURL: google.Endpoint.TokenURL,
-		},
-	}
+	conf := c.MustGet("conf").(*oauth2.Config)
 	httpClient := conf.Client(context.Background(), token)
 	service := &photoslibrary.Service{}
 
@@ -48,20 +31,9 @@ func AlbumsHandler(c *gin.Context) {
 	c.JSON(200, albums)
 }
 
-func createAlbum(title string) {
-	args := photoslibrary.CreateAlbumRequest{
-		Album: &photoslibrary.Album{
-			Title: title,
-		},
-	}
-	ret := albumService.Create(&args)
-	albums, _ := ret.Do()
-	log.Println(albums.ProductUrl)
-}
-
 func listAlbums() (albums []*models.SimpleAlbum, err error) {
 	albumList := albumService.List()
-	ret, err := albumList.PageSize(50).Do()
+	ret, err := albumList.PageSize(defaultPageSize).Do()
 	albumList.Do()
 	if err != nil {
 		return albums, err
@@ -80,7 +52,7 @@ func listAlbums() (albums []*models.SimpleAlbum, err error) {
 		if nextPageToken == "" {
 			break
 		}
-		ret, err = albumList.PageToken(nextPageToken).PageSize(50).Do()
+		ret, err = albumList.PageToken(nextPageToken).PageSize(defaultPageSize).Do()
 		if err != nil {
 			log.Fatal(err)
 			return albums, err
@@ -88,53 +60,13 @@ func listAlbums() (albums []*models.SimpleAlbum, err error) {
 		for _, album := range ret.Albums {
 			fmt.Println(album.Title, album.ProductUrl)
 			simpleAlbum := &models.SimpleAlbum{
-				Title: album.Title,
-				// CoverPhotoBaseUrl: album.CoverPhotoBaseUrl,
-				Url: album.ProductUrl,
+				Title:             album.Title,
+				CoverPhotoBaseUrl: album.CoverPhotoBaseUrl,
+				Url:               album.ProductUrl,
 			}
 			albums = append(albums, simpleAlbum)
 		}
 	}
 
 	return albums, nil
-}
-
-func storeToken(googleUserEmail string, token *oauth2.Token) error {
-	tokenJSONBytes, err := json.Marshal(token)
-	if err != nil {
-		return err
-	}
-
-	err = keyring.Set(serviceName, googleUserEmail, string(tokenJSONBytes))
-	if err != nil {
-		log.Debugf("failed storing token into keyring: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func retrieveToken(googleUserEmail string) (*oauth2.Token, error) {
-	tokenJSONString, err := keyring.Get(serviceName, googleUserEmail)
-	if err != nil {
-		if err == keyring.ErrNotFound {
-			return nil, err
-		}
-
-		return nil, err
-	}
-
-	var token oauth2.Token
-	err = json.Unmarshal([]byte(tokenJSONString), &token)
-	if err != nil {
-		log.Debugf("failed unmarshaling token: %v", err)
-		return nil, err
-	}
-
-	// validate token
-	if !token.Valid() {
-		return nil, errors.New("invalid token")
-	}
-
-	return &token, nil
 }
