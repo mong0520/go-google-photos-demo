@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mong0520/go-google-photos-demo/models"
@@ -16,8 +17,22 @@ var defaultPageSize = int64(50)
 
 func GetAlbums(c *gin.Context) {
 	// those context value was set in middleware
-	token := c.MustGet("token").(*oauth2.Token)
-	conf := c.MustGet("conf").(*oauth2.Config)
+	var token *oauth2.Token
+	var conf *oauth2.Config
+	tokenI := c.Value("token")
+	if tokenI != nil {
+		token = tokenI.(*oauth2.Token)
+	} else {
+		c.JSON(400, "not a valid token")
+		return
+	}
+	confI := c.Value("conf")
+	if confI != nil {
+		conf = confI.(*oauth2.Config)
+	} else {
+		c.JSON(400, "not a valid config")
+		return
+	}
 	httpClient := conf.Client(context.Background(), token)
 	service := &photoslibrary.Service{}
 
@@ -67,6 +82,8 @@ func listAlbums() (albums []*models.SimpleAlbum, err error) {
 			albums = append(albums, simpleAlbum)
 		}
 	}
+
+	sort.Slice(albums, func(i, j int) bool { return albums[i].Title > albums[j].Title })
 
 	return albums, nil
 }
