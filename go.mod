@@ -20,8 +20,8 @@ require (
 	github.com/palantir/stacktrace v0.0.0-20161112013806-78658fd2d177 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
-	github.com/zalando/gin-oauth2 v1.5.2
-	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
+	github.com/zalando/gin-oauth2 v1.5.2 // indirect
+	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3 // indirect
 	google.golang.org/api v0.3.2
